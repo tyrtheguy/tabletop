@@ -208,6 +208,8 @@ socket.on('mapList', mapArray => {
 });
 
 socket.on("sessionStatus", (status) => {
+    loadMap(status.currentMap);
+
     status.activeTokens.forEach(data => {
         setupToken(data.id, data.x ?? 300, data.y ?? 300, data.token);
     });

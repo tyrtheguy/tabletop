@@ -44,7 +44,6 @@ app.use("/static", express.static(path.join(__dirname, "public")));
 app.get("/", (req, res) => res.render("index"));
 
 io.on("connection", socket => {
-
     const userId = socket.handshake.auth.userId;
 
     // cria player se não existir
