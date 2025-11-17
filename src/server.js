@@ -13,9 +13,6 @@ const DB_FILE = "./players.json";
 const MAP_FILE = "./mapData.json";
 const SESSION_FILE = './session.json';
 
-// ===============================
-// CARREGA BANCO
-// ===============================
 let players = {};
 let maps = [];
 
@@ -40,18 +37,12 @@ function saveDB(file, content) {
     fs.writeFileSync(file, JSON.stringify(content, null, 4));
 }
 
-// ===============================
-// EXPRESS
-// ===============================
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "public", "views"));
 app.use("/static", express.static(path.join(__dirname, "public")));
 
 app.get("/", (req, res) => res.render("index"));
 
-// ===============================
-// SOCKET.IO
-// ===============================
 io.on("connection", socket => {
 
     const userId = socket.handshake.auth.userId;
@@ -62,33 +53,30 @@ io.on("connection", socket => {
         saveDB(DB_FILE, players);
     }
 
-    // 🔥 ENVIA TUDO para o novo cliente
     socket.emit("currentPlayers", players);
     socket.emit("mapList", maps);
     socket.emit("sessionStatus", sessionStatus);
 
-    // 🔥 ENVIA TODOS TOKENS JÁ EXISTENTES
     sessionStatus.activeTokens.forEach(t => {
         socket.emit("sessionUpdateActiveTokens", t);
     });
 
-    // notifica outros que o player entrou
     socket.broadcast.emit("newPlayer", players[userId]);
 
-    // ===============================
-    // TOKEN ADICIONADO
-    // ===============================
     socket.on('addToken', (data) => {
         sessionStatus.activeTokens.push(data);
         saveDB(SESSION_FILE, sessionStatus);
 
-        // 🔥 ENVIA PARA TODO MUNDO INCLUSIVE QUEM JÁ ESTÁ ONLINE
         io.emit('sessionUpdateActiveTokens', data);
     });
 
-    // ===============================
-    // MOVIMENTO — AGORA FUNCIONA PARA PLAYERS E TOKENS
-    // ===============================
+    socket.on('updateMap', (data /* Mapa */) => {
+        sessionStatus.currentMap = data;
+        saveDB(SESSION_FILE, sessionStatus);
+
+        io.emit('updateSessionMap', data);
+    }); 
+
     socket.on("playerMove", (data) => {
         const { id, x, y } = data;
 
@@ -110,9 +98,6 @@ io.on("connection", socket => {
         io.emit("updatePlayer", { id, x, y });
     });
 
-    // ===============================
-    // DESCONECTOU
-    // ===============================
     socket.on("disconnect", () => {
         io.emit("playerDisconnect", userId);
     });

@@ -3,6 +3,7 @@
 // ============================
 function getPersistentID() {
     let id = sessionStorage.getItem("playerID");
+
     if (!id) {
         id = "player-" + Math.floor(Math.random() * 9999999);
         sessionStorage.setItem("playerID", id);
@@ -29,9 +30,6 @@ const socket = io({
     auth: { userId: playerID }
 });
 
-// ============================
-// CANVAS E MAPA
-// ============================
 const gameCanvas = document.getElementById('gameCanvas');
 const ctx = gameCanvas.getContext('2d');
 
@@ -65,9 +63,7 @@ function loadMap(map) {
     img.onload = () => drawMapContained(img);
 }
 
-// ============================
 // CARREGA TOKENS DISPONÍVEIS
-// ============================
 function loadAvailableTokens() {
     const tokensDiv = document.getElementById('token-getter');
 
@@ -101,9 +97,6 @@ function loadAvailableTokens() {
     });
 }
 
-// ============================
-// MOUSE
-// ============================
 let mouseX = 0, mouseY = 0;
 
 function getMousePos(canvas, event) {
@@ -119,13 +112,11 @@ function getMousePos(canvas, event) {
 
 document.addEventListener("mousemove", event => {
     const pos = getMousePos(gameCanvas, event);
+
     mouseX = pos.x - 20;
     mouseY = pos.y - 20;
 });
 
-// ============================
-// TOKENS (PLAYERS E TOKENS LIVRES)
-// ============================
 let currentHeldToken = null;
 const tokens = {};
 
@@ -174,9 +165,6 @@ function setupToken(id, x, y, availableToken) {
     tokens[id] = token;
 }
 
-// ============================
-// LOOP DO MOVIMENTO
-// ============================
 function loop() {
     if (currentHeldToken) {
         currentHeldToken.style.left = mouseX + "px";
@@ -193,9 +181,6 @@ function loop() {
 }
 loop();
 
-// ============================
-// SOCKET EVENTS
-// ============================
 socket.on("currentPlayers", data => {
     for (const id in data) {
         const p = data[id];
@@ -210,36 +195,33 @@ socket.on('mapList', mapArray => {
 
     mapArray.forEach((map) => {
         const mapGetterElem = document.createElement('label');
+
         mapGetterElem.innerText = `${map.name}`;
         mapGetterElem.classList.add('map-getter');
 
         mapGetterElem.addEventListener('click', () => {
-            loadMap(map);
+            socket.emit('updateMap', map)
         });
 
         mapGetterDiv.appendChild(mapGetterElem);
     });
 });
 
-// 🔥 RECEBE TOKENS EXISTENTES AO ENTRAR
 socket.on("sessionStatus", (status) => {
     status.activeTokens.forEach(data => {
         setupToken(data.id, data.x ?? 300, data.y ?? 300, data.token);
     });
 });
 
-// 🔥 TOKEN NOVO OU ALTERADO
 socket.on('sessionUpdateActiveTokens', data => {
     setupToken(data.id, data.x ?? 300, data.y ?? 300, data.token);
 });
 
-// 🔥 PLAYER NOVO
 socket.on("newPlayer", p => {
     if (!p) return;
     setupToken(p.id, p.x, p.y, availableTokens[0]);
 });
 
-// 🔥 QUALQUER TOKEN OU PLAYER ATUALIZADO
 socket.on("updatePlayer", move => {
     if (!tokens[move.id]) return;
 
@@ -247,7 +229,10 @@ socket.on("updatePlayer", move => {
     tokens[move.id].style.top = move.y + "px";
 });
 
-// 🔥 PLAYER DESCONECTOU
+socket.on("updateSessionMap", (map) => {
+    loadMap(map);
+});
+
 socket.on("playerDisconnect", id => {
     if (tokens[id]) {
         tokens[id].remove();

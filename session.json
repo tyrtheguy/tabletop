@@ -1,5 +1,8 @@
 {
-    "currentMap": [],
+    "currentMap": {
+        "name": "Room-1",
+        "loc": "static/maps/room.png"
+    },
     "activeTokens": [
         {
             "id": "token-328325",
@@ -9,8 +12,19 @@
                 "width": 150,
                 "height": 230
             },
-            "x": 1370.0078125,
-            "y": 529.0078125
+            "x": 687.0078125,
+            "y": 191.0078125
+        },
+        {
+            "id": "token-366389",
+            "token": {
+                "name": "Zumbi",
+                "avatarLink": "static/tokens/zombie.png",
+                "width": 150,
+                "height": 230
+            },
+            "x": 329.0078125,
+            "y": 278.0078125
         }
     ]
 }
