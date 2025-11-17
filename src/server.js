@@ -8,7 +8,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-const PORT = 9000;
+const PORT = process.env.PORT || 9000;
 const DB_FILE = "./players.json";
 const MAP_FILE = "./mapData.json";
 const SESSION_FILE = './session.json';
