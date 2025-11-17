@@ -1,15 +1,43 @@
+// ============================
+// ID PERSISTENTE POR ABA
+// ============================
+function getPersistentID() {
+    let id = sessionStorage.getItem("playerID");
+    if (!id) {
+        id = "player-" + Math.floor(Math.random() * 9999999);
+        sessionStorage.setItem("playerID", id);
+    }
+    return id;
+}
+
+const playerID = getPersistentID();
+
+let availableTokens = [
+    {
+        name: 'PeroPero',
+        avatarLink: 'static/tokens/token.png',
+        width: 120, height: 230
+    },
+    {
+        name: 'Zumbi',
+        avatarLink: 'static/tokens/zombie.png',
+        width: 150, height: 230
+    }
+];
+
+const socket = io({
+    auth: { userId: playerID }
+});
+
+// ============================
+// CANVAS E MAPA
+// ============================
 const gameCanvas = document.getElementById('gameCanvas');
 const ctx = gameCanvas.getContext('2d');
 
-/* =====================================================
-   CANVAS FIXO EM 1920×1080
-   ===================================================== */
 gameCanvas.width = 1920;
 gameCanvas.height = 1080;
 
-/* =====================================================
-   DESENHAR MAPA SEM PERDER QUALIDADE (CONTAIN)
-   ===================================================== */
 function drawMapContained(img) {
     const cw = gameCanvas.width;
     const ch = gameCanvas.height;
@@ -17,151 +45,216 @@ function drawMapContained(img) {
     const iw = img.width;
     const ih = img.height;
 
-    // Escala para caber dentro do canvas (contain)
     const scale = Math.min(cw / iw, ch / ih);
-
     const newW = iw * scale;
     const newH = ih * scale;
 
-    // Centralização
     const offsetX = (cw - newW) / 2;
     const offsetY = (ch - newH) / 2;
 
-    // Fundo preto nas bordas
     ctx.fillStyle = 'black';
     ctx.fillRect(0, 0, cw, ch);
-
-    // Desenhar o mapa
     ctx.drawImage(img, offsetX, offsetY, newW, newH);
 }
 
-/* =====================================================
-   CALCULAR POSIÇÃO REAL DO MOUSE NO CANVAS
-   ===================================================== */
+function loadMap(map) {
+    const img = new Image();
+    const loc = map ? map.loc : 'static/maps/room.png';
+
+    img.src = loc;
+    img.onload = () => drawMapContained(img);
+}
+
+// ============================
+// CARREGA TOKENS DISPONÍVEIS
+// ============================
+function loadAvailableTokens() {
+    const tokensDiv = document.getElementById('token-getter');
+
+    availableTokens.forEach((token) => {
+        const tokenLinkerDiv = document.createElement('div');
+        const tokenLinker = document.createElement('label');
+        const tokenProportionsController = document.getElementById('characters-scales');
+
+        tokenLinker.classList.add('token-linker');
+        tokenLinker.innerText = token.name;
+
+        tokenProportionsController.onchange = () => {
+            document.querySelectorAll('.token').forEach((t) => {
+                t.style.transform = `scale(${tokenProportionsController.value / 100})`;
+            });
+        };
+
+        tokenLinker.addEventListener('click', () => {
+            const id = `token-${Math.floor(Math.random() * 1000000)}`;
+
+            socket.emit('addToken', {
+                id,
+                token,
+                x: 300,
+                y: 300
+            });
+        });
+
+        tokenLinkerDiv.appendChild(tokenLinker);
+        tokensDiv.appendChild(tokenLinkerDiv);
+    });
+}
+
+// ============================
+// MOUSE
+// ============================
+let mouseX = 0, mouseY = 0;
+
 function getMousePos(canvas, event) {
     const rect = canvas.getBoundingClientRect();
-
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
+    const sX = canvas.width / rect.width;
+    const sY = canvas.height / rect.height;
 
     return {
-        x: (event.clientX - rect.left) * scaleX,
-        y: (event.clientY - rect.top) * scaleY
+        x: ((event.clientX - rect.left) * sX) - 30,
+        y: ((event.clientY - rect.top) * sY) - 100
     };
 }
 
-let mouseX = 0;
-let mouseY = 0;
-
-document.addEventListener("mousemove", (event) => {
+document.addEventListener("mousemove", event => {
     const pos = getMousePos(gameCanvas, event);
     mouseX = pos.x - 20;
     mouseY = pos.y - 20;
 });
 
-/* =====================================================
-   ATUALIZAÇÃO DOS TOKENS SPLITADOS (HOLDING)
-   ===================================================== */
-setInterval(() => {
-    document.querySelectorAll('.holding').forEach((t) => {
-        t.style.left = `${mouseX}px`;
-        t.style.top = `${mouseY}px`;
-    });
-}, 10);
+// ============================
+// TOKENS (PLAYERS E TOKENS LIVRES)
+// ============================
+let currentHeldToken = null;
+const tokens = {};
 
-/* =====================================================
-   CARREGAR MAPA
-   ===================================================== */
-function loadMap() {
-    const img = new Image();
-    img.src = '/static/maps/image.png';
+function setupToken(id, x, y, availableToken) {
 
-    img.onload = () => drawMapContained(img);
-}
-
-function generateRandomHexColor() {
-    // Generate a random number between 0 and 16777215 (FFFFFF in hex)
-    const randomColor = Math.floor(Math.random() * 16777215);
-    // Convert the number to a hexadecimal string and pad with leading zeros if necessary
-    let hexColor = randomColor.toString(16);
-    while (hexColor.length < 6) {
-        hexColor = "0" + hexColor;
+    if (!availableToken) {
+        availableToken = availableTokens[0];
     }
-    // Prepend '#' to make it a valid hex color code
-    return "#" + hexColor;
-}
 
+    // Se já existir, atualiza
+    if (tokens[id]) {
+        tokens[id].style.left = x + "px";
+        tokens[id].style.top = y + "px";
+        return;
+    }
 
-/* =====================================================
-   CARREGAR TOKENS (DIV)
-   ===================================================== */
-function loadTokens() {
-    const tokens = [
-        {
-            name: 'Brian',
-            x: 110,
-            y: 110,
-            img: 'static/tokens/image.png'
-        }, {
-            name: 'Alissa',
-            x: 0,
-            y: 0,
+    const token = document.createElement("div");
+    token.className = "token";
+    token.name = id;
+
+    token.style.position = "absolute";
+    token.style.width = `${availableToken.width}px`;
+    token.style.height = `${availableToken.height}px`;
+    token.style.backgroundImage = `url('${availableToken.avatarLink}')`;
+    token.style.backgroundRepeat = "no-repeat";
+    token.style.backgroundPosition = "center center";
+    token.style.backgroundSize = "cover";
+
+    token.style.left = x + "px";
+    token.style.top = y + "px";
+
+    token.addEventListener("mousedown", () => {
+        if (currentHeldToken === token) {
+            token.classList.remove("holding");
+            currentHeldToken = null;
+            return;
         }
-    ];
-
-    const panel = document.getElementById('token-panel');
-
-    tokens.forEach((tdata) => {
-        const token = document.createElement('div');
-
-        token.className = 'token';
-        token.style.position = 'absolute';
-        token.style.width = '48px';
-        token.style.height = '48px';
-        token.style.borderRadius = '50%';
-        token.style.backgroundColor = `${generateRandomHexColor()}`
-        token.style.left = `${tdata.x}px`;
-        token.style.top = `${tdata.y}px`;
-        token.style.pointerEvents = 'auto';
-
-        token.addEventListener('mouseover', (e) => {
-            if (token.classList.contains('holding')) return;
-
-            const pos = getMousePos(gameCanvas, e);
-
-            const name = document.getElementById('panel-token-name');
-            const hp = document.getElementById('panel-token-hp');
-
-            name.innerText = 'NAME: ' + tdata.name;
-            hp.innerText = 'HP: ' + `${Math.floor(Math.random() * 30)}/30`
-
-            panel.style.left = `${pos.x + 50}px`;
-            panel.style.top = `${pos.y}px`;
-            panel.style.visibility = 'visible';
-        });
-
-        token.addEventListener('mouseout', () => {
-            if (!token.classList.contains('holding'))
-                panel.style.visibility = 'hidden';
-        });
-
-        token.addEventListener('mousedown', (e) => {
-            if (e.button !== 0) return;
-
-            if (token.classList.contains('holding')) {
-                return token.classList.remove('holding');
-            }
-
-            panel.style.visibility = 'hidden';
-            token.classList.add('holding');
-        });
-
-        document.getElementById('mapContainer').appendChild(token);
+        if (currentHeldToken) {
+            currentHeldToken.classList.remove("holding");
+        }
+        currentHeldToken = token;
+        token.classList.add("holding");
     });
+
+    document.getElementById("mapContainer").appendChild(token);
+    tokens[id] = token;
 }
 
-/* =====================================================
-   START
-   ===================================================== */
+// ============================
+// LOOP DO MOVIMENTO
+// ============================
+function loop() {
+    if (currentHeldToken) {
+        currentHeldToken.style.left = mouseX + "px";
+        currentHeldToken.style.top = mouseY + "px";
+
+        socket.emit("playerMove", {
+            id: currentHeldToken.name,
+            x: mouseX,
+            y: mouseY
+        });
+    }
+
+    requestAnimationFrame(loop);
+}
+loop();
+
+// ============================
+// SOCKET EVENTS
+// ============================
+socket.on("currentPlayers", data => {
+    for (const id in data) {
+        const p = data[id];
+
+        if (!p) continue;
+        setupToken(id, p.x, p.y, availableTokens[0]);
+    }
+});
+
+socket.on('mapList', mapArray => {
+    const mapGetterDiv = document.getElementById('map-getter');
+
+    mapArray.forEach((map) => {
+        const mapGetterElem = document.createElement('label');
+        mapGetterElem.innerText = `${map.name}`;
+        mapGetterElem.classList.add('map-getter');
+
+        mapGetterElem.addEventListener('click', () => {
+            loadMap(map);
+        });
+
+        mapGetterDiv.appendChild(mapGetterElem);
+    });
+});
+
+// 🔥 RECEBE TOKENS EXISTENTES AO ENTRAR
+socket.on("sessionStatus", (status) => {
+    status.activeTokens.forEach(data => {
+        setupToken(data.id, data.x ?? 300, data.y ?? 300, data.token);
+    });
+});
+
+// 🔥 TOKEN NOVO OU ALTERADO
+socket.on('sessionUpdateActiveTokens', data => {
+    setupToken(data.id, data.x ?? 300, data.y ?? 300, data.token);
+});
+
+// 🔥 PLAYER NOVO
+socket.on("newPlayer", p => {
+    if (!p) return;
+    setupToken(p.id, p.x, p.y, availableTokens[0]);
+});
+
+// 🔥 QUALQUER TOKEN OU PLAYER ATUALIZADO
+socket.on("updatePlayer", move => {
+    if (!tokens[move.id]) return;
+
+    tokens[move.id].style.left = move.x + "px";
+    tokens[move.id].style.top = move.y + "px";
+});
+
+// 🔥 PLAYER DESCONECTOU
+socket.on("playerDisconnect", id => {
+    if (tokens[id]) {
+        tokens[id].remove();
+        delete tokens[id];
+    }
+});
+
+// ============================
+loadAvailableTokens();
 loadMap();
-loadTokens();

@@ -7,7 +7,6 @@
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            border: 1px solid #000;
         }
 
         #token-panel {
@@ -22,6 +21,19 @@
             padding: 20px;
             border-radius: 5%;
         }
+
+        #token-getter {
+            font-size: 48px;
+        }
+
+        .token-linker {
+            cursor: pointer;
+        }
+
+        .map-getter {
+            font-size: 48px;
+            cursor: pointer;
+        }
     </style>
     <link rel='icon' href='/static/favicon.ico'>
     <title>Tabletop - BETA</title>
@@ -34,7 +46,21 @@
         </div>
         <canvas id="gameCanvas"></canvas>
     </div>
-    
+    <div id='token-getter'>
+        <label>Characters Scale</label>
+        <input min='0' max='200' type='range' id='characters-scales'>
+    </div>
+    <hr>
+    <div id='map-getter'>
+        
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+
+    <!-- Loading the socket -->
+    <script> 
+
+    </script>
     <script src='/static/scripts/index.js' type="text/javascript"></script>
 </body>
 </html>

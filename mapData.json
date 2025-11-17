@@ -1,0 +1,10 @@
+[
+    {
+        "name": "Room-1",
+        "loc": "static/maps/room.png"
+    },
+    {
+        "name": "Valcia",
+        "loc": "static/maps/valcia.png"
+    }
+]

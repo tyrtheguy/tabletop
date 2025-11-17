@@ -1,0 +1,16 @@
+{
+    "currentMap": [],
+    "activeTokens": [
+        {
+            "id": "token-328325",
+            "token": {
+                "name": "Zumbi",
+                "avatarLink": "static/tokens/zombie.png",
+                "width": 150,
+                "height": 230
+            },
+            "x": 1370.0078125,
+            "y": 529.0078125
+        }
+    ]
+}
